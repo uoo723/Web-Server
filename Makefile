@@ -1,6 +1,8 @@
 CC = gcc
+CFLAGS = -Wall
 BUILD = build
-OBJS = $(BUILD)/main.o $(BUILD)/http_parser.o
+SRCS = $(wildcard *.c)
+OBJS = $(patsubst %.c,$(BUILD)/%.o,$(SRCS))
 TARGET = app
 MKDIR = mkdir -p
 
@@ -11,8 +13,8 @@ all: dir $(TARGET)
 $(TARGET): $(OBJS)
 	$(CC) -o $@ $(OBJS)
 
-$(OBJS):
-	$(CC) -c -o $@ $(subst $(BUILD)/,,$(@:.o=.c)) -I.
+$(OBJS): $(SRCS)
+	$(CC) $(CFLAGS) $(debug) -c -o $@ $(subst $(BUILD)/,,$(@:.o=.c)) -I.
 
 dir:
 	$(MKDIR) $(BUILD)
