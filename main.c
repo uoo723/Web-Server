@@ -108,11 +108,11 @@ int main(int argc, char *argv[]) {
             exit(EXIT_FAILURE);
         }
 
-        print_http_request((http_request_t *) parser->data);
+        // print_http_request((http_request_t *) parser->data);
+        int msg_size;
+        make_response(&message, &msg_size, (http_request_t *) parser->data);
 
-        make_response(&message, (http_request_t *) parser->data);
-
-        if (send(new_socket, message, strlen(message), 0) < 0) {
+        if (send(new_socket, message, msg_size, 0) < 0) {
             perror("write failed");
             exit(EXIT_FAILURE);
         }

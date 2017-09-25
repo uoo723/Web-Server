@@ -6,7 +6,7 @@ extern "C" {
 
 #include "http_request.h"
 
-void make_response(char **dst, http_request_t *request);
+void make_response(char **dst, int *dst_size, http_request_t *request);
 
 #ifdef __cplusplus
 }
