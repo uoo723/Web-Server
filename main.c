@@ -5,77 +5,15 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <errno.h>
 
 #include "http_parser.h"
 #include "http_request.h"
+#include "make_response.h"
 
 #define BUFFER_SIZE (80*1024)
 #define PORT 8080
 #define BACKLOG 10
 
-/*
-static char *make_response(custom_data_t *data) {
-    char *path = data->request_path;
-    char new_path[50] = "html";
-    char buf[500];
-
-    if (strcmp(path, "/") == 0) {
-        strcpy(new_path, "html/index.html");
-    } else {
-        strcat(new_path, path);
-    }
-
-    printf("%s\n", new_path);
-    FILE *fp = fopen(new_path, "r");
-
-    if (!fp) {
-        if (errno == ENOENT) {
-            fp = fopen("html/404.html", "r");
-            if (!fp) {
-                perror("File opending failed");
-                exit(EXIT_FAILURE);
-            }
-        } else {
-            perror("File opending failed");
-            exit(EXIT_FAILURE);
-        }
-    }
-
-    size_t len = fread(buf, sizeof(char), 500, fp);
-    buf[len] = '\0';
-    // printf("%s\n", buf);
-    // int c;
-    // while ((c = fgetc(fp)) != EOF) {
-    //     putchar(c);
-    // }
-    //
-    // if (ferror(fp)) {
-    //     puts("I/O error when reading");
-    // } else if (feof(fp)) {
-    //     puts("End of file reached successfully");
-    // }
-
-    fclose(fp);
-
-    char *format =
-    "HTTP/1.1 200 OK\r\n"
-    "Date: Thu, 19 Feb 2009 12:27:04 GMT\r\n"
-    "Server: Apache/2.2.3\r\n"
-    "Last-Modified: Wed, 18 Jun 2003 16:05:58 GMT\r\n"
-    "ETag: \"56d-9989200-1132c580\"\r\n"
-    "Content-Type: text/html\r\n"
-    "Content-Length: %zu\r\n"
-    "Accept-Ranges: bytes\r\n"
-    "Connection: close\n"
-    "\r\n"
-    "%s";
-
-    char *new_message;
-    asprintf(&new_message, format, len, buf);
-    return new_message;
-}
-*/
 int main(int argc, char *argv[]) {
     int socketfd, new_socket;
     struct sockaddr_in server_addr, client_addr;
@@ -171,24 +109,14 @@ int main(int argc, char *argv[]) {
 
         print_http_request((http_request_t *) parser->data);
 
-        message =
-        "HTTP/1.1 200 OK\r\n"
-        "Date: Thu, 19 Feb 2009 12:27:04 GMT\r\n"
-        "Server: Apache/2.2.3\r\n"
-        "Last-Modified: Wed, 18 Jun 2003 16:05:58 GMT\r\n"
-        "ETag: \"56d-9989200-1132c580\"\r\n"
-        "Content-Type: text/html\r\n"
-        "Content-Length: 18\r\n"
-        "Accept-Ranges: bytes\r\n"
-        "Connection: close\n"
-        "\r\n"
-        "I got your message";
+        make_response(&message, (http_request_t *) parser->data);
 
         if (send(new_socket, message, strlen(message), 0) < 0) {
             perror("write failed");
             exit(EXIT_FAILURE);
         }
 
+        free(message);
         close(new_socket);
     }
 
