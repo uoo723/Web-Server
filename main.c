@@ -33,6 +33,7 @@ int main(int argc, char *argv[]) {
     settings.on_header_field = on_header_field_cb;
     settings.on_header_value = on_header_value_cb;
     settings.on_body = on_body_cb;
+    settings.on_message_complete = on_message_complete_cb;
 
     http_parser_init(parser, HTTP_REQUEST);
     parser->data = request;

@@ -4,7 +4,7 @@
 void print_http_request(http_request_t *request) {
     int i;
     printf("path: %s\n", request->path);
-
+    printf("method: %s\n", http_method_str(request->method));
     for (i = 0; i < request->num_headers; i++) {
         printf("%s: %s\n", request->headers[i][0], request->headers[i][1]);
     }
@@ -60,6 +60,15 @@ int on_body_cb(http_parser *parser, const char *at, size_t len) {
 
     http_request_t *request = (http_request_t *) parser->data;
     strncat(request->body, at, len);
+
+    return 0;
+}
+
+int on_message_complete_cb(http_parser *parser) {
+    if (!parser->data) return 0;
+
+    http_request_t *request = (http_request_t *) parser->data;
+    request->method = parser->method;
 
     return 0;
 }
