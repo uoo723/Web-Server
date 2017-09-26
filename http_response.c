@@ -6,25 +6,12 @@
 
 #include "http_response.h"
 
+#define BUFFER_SIZE (80*1024)
+
 static void get_current_time(char *buf, size_t len) {
     time_t now = time(NULL);
     struct tm tm = *gmtime(&now);
     strftime(buf, len, "%a, %d %b %Y %H:%M:%S GMT", &tm);
-}
-
-static void set_header(http_response_t *response, char *field, char *value) {
-    int i;
-    for (i = 0; i < response->num_headers; i++) {
-        if (strcmp(response->headers[i][0], field) == 0) {
-            memset(response->headers[i][1], 0, MAX_ELEMENT_SIZE);
-            strcpy(response->headers[i][1], value);
-            return;
-        }
-    }
-
-    strcpy(response->headers[response->num_headers][0], field);
-    strcpy(response->headers[response->num_headers][1], value);
-    response->num_headers++;
 }
 
 static void set_common_headers(http_response_t *response) {
@@ -68,7 +55,9 @@ static char *get_mime_type(char *path) {
     return"text/plain";
 }
 
-static void set_status(http_response_t *response, enum http_status status) {
+void set_status(http_response_t *response, enum http_status status) {
+    memset(response->status, 0, STATUS_LEN);
+
     switch (status) {
     case HTTP_STATUS_CONTINUE:
         strcpy(response->status, "100 Continue");
@@ -308,8 +297,87 @@ static void set_status(http_response_t *response, enum http_status status) {
     }
 }
 
-static void make_response_string(char **dst, int *dst_size,
-    http_response_t *response) {
+void set_header(http_response_t *response, char *field, char *value) {
+    int i;
+    for (i = 0; i < response->num_headers; i++) {
+        if (strcmp(response->headers[i][0], field) == 0) {
+            memset(response->headers[i][1], 0, MAX_ELEMENT_SIZE);
+            strcpy(response->headers[i][1], value);
+            return;
+        }
+    }
+
+    strcpy(response->headers[response->num_headers][0], field);
+    strcpy(response->headers[response->num_headers][1], value);
+    response->num_headers++;
+}
+
+void make_response(http_response_t *response, http_request_t *request) {
+    // printf("-------- print request --------- \n");
+    // print_http_request(request);
+    // printf("-------- end print request --------- \n\n");
+    // fflush(stdout);
+
+    char path[100] = "html";
+    int is_server_error = 0;
+
+    set_status(response, HTTP_STATUS_OK);
+    set_common_headers(response);
+
+    if (request->method != HTTP_GET) {
+        set_status(response, HTTP_STATUS_METHOD_NOT_ALLOWED);
+        return;
+    }
+
+    if (strcmp(request->path, "/") == 0) {
+        strcat(path, "/index.html");
+    } else {
+        strcat(path, request->path);
+    }
+
+    FILE *fp = fopen(path, "rb");
+
+    if (!fp) {
+        if (errno == ENOENT) {
+            strcpy(path, "html/404.html");
+            fp = fopen(path, "rb");
+            set_status(response, HTTP_STATUS_NOT_FOUND);
+
+            if (!fp) {
+                set_status(response, HTTP_STATUS_INTERNAL_SERVER_ERROR);
+                is_server_error = 1;
+            }
+        } else {
+            set_status(response, HTTP_STATUS_INTERNAL_SERVER_ERROR);
+            is_server_error = 1;
+        }
+    }
+
+    if (!is_server_error) {
+        fseek(fp, 0, SEEK_END);
+        response->content_length = ftell(fp);
+        fseek(fp, 0, SEEK_SET);
+        response->content = fp;
+        // fread(response->body, sizeof(char), content_length, *fp);
+        // fclose(fp);
+
+        char str_content_len[100] = {0};
+        sprintf(str_content_len, "%d", response->content_length);
+        set_header(response, "Content-Length", str_content_len);
+        set_header(response, "Content-Type", get_mime_type(path));
+    }
+
+    // printf("dst_size: %d\n", *dst_size);
+    // printf("%s\n", *dst);
+    // *fd = fileno(fp);
+    // printf("------- print http response ---------\n");
+    // print_http_response(response);
+    // printf("---------- end print http response ------------\n\n");
+    // fflush(stdout);
+    // free(response);
+}
+
+void make_response_string(http_response_t *response, char **dst, int *dst_size) {
     size_t content_offset = 0;
     char *version = "HTTP/1.1 ";
     int i;
@@ -349,72 +417,4 @@ void print_http_response(http_response_t *response) {
     }
 
     fflush(stdout);
-}
-
-void make_response(char **dst, int *dst_size, FILE **fp, http_request_t *request) {
-    printf("-------- print request --------- \n");
-    print_http_request(request);
-    printf("-------- end print request --------- \n\n");
-    fflush(stdout);
-    http_response_t *response = malloc(sizeof(http_response_t));
-    char path[100] = "html";
-    int content_length;
-    int is_server_error = 0;
-    memset(response, 0, sizeof(http_response_t));
-
-    set_status(response, HTTP_STATUS_OK);
-    set_common_headers(response);
-
-    if (request->method != HTTP_GET) {
-        set_status(response, HTTP_STATUS_METHOD_NOT_ALLOWED);
-        make_response_string(dst, dst_size, response);
-        return;
-    }
-
-    if (strcmp(request->path, "/") == 0) {
-        strcat(path, "/index.html");
-    } else {
-        strcat(path, request->path);
-    }
-
-    *fp = fopen(path, "rb");
-
-    if (!(*fp)) {
-        if (errno == ENOENT) {
-            strcpy(path, "html/404.html");
-            *fp = fopen(path, "rb");
-            set_status(response, HTTP_STATUS_NOT_FOUND);
-
-            if (!(*fp)) {
-                set_status(response, HTTP_STATUS_INTERNAL_SERVER_ERROR);
-                is_server_error = 1;
-            }
-        } else {
-            set_status(response, HTTP_STATUS_INTERNAL_SERVER_ERROR);
-            is_server_error = 1;
-        }
-    }
-
-    if (!is_server_error) {
-        fseek(*fp, 0, SEEK_END);
-        response->content_length = content_length = ftell(*fp);
-        fseek(*fp, 0, SEEK_SET);
-        // fread(response->body, sizeof(char), content_length, *fp);
-        // fclose(fp);
-
-        char str_content_len[100] = {0};
-        sprintf(str_content_len, "%d", content_length);
-        set_header(response, "Content-Length", str_content_len);
-        set_header(response, "Content-Type", get_mime_type(path));
-    }
-
-    make_response_string(dst, dst_size, response);
-    // printf("dst_size: %d\n", *dst_size);
-    // printf("%s\n", *dst);
-    // *fd = fileno(fp);
-    printf("------- print http response ---------\n");
-    print_http_response(response);
-    printf("---------- end print http response ------------\n\n");
-    fflush(stdout);
-    free(response);
 }

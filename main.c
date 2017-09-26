@@ -18,17 +18,69 @@
 
 static void sigpipe_handler(int signum) { /* Do nothing */ }
 
+static void error(char *str) {
+    perror(str);
+    exit(EXIT_FAILURE);
+}
+
+static void recv_request(int socketfd, http_parser *parser) {
+    int nparsed, recved;
+    char buffer[BUFFER_SIZE];
+    memset(buffer, 0, BUFFER_SIZE);
+
+    while ((recved = recv(socketfd, buffer, BUFFER_SIZE, 0)) >= 0) {
+        // if ()
+    }
+}
+
 int main(int argc, char *argv[]) {
     signal(SIGPIPE, sigpipe_handler);
 
-    int socketfd, new_socket;
-    struct sockaddr_in server_addr, client_addr;
-    int opt = 1;
-    socklen_t opt_size = (socklen_t) sizeof(opt);
-    int client_addrlen;
-    char buffer[BUFFER_SIZE];
-    char *message;
+    int socketfd;
+    int opt;
     int sock_buf_size;
+    socklen_t opt_size = (socklen_t) sizeof(opt);
+
+    // Create ipv4 TCP socket
+    if ((socketfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+        error("socket failed");
+    }
+
+    opt = 1;
+    // Set socket option to be reuse address to avoid error "Address already in use"
+    if (setsockopt(socketfd, SOL_SOCKET, SO_REUSEADDR, &opt, opt_size) < 0) {
+        error("setsockopt(SO_REUSEADDR) failed");
+    }
+
+    // Required on Linux >= 3.9
+    #ifdef SO_REUSEPORT
+    if (setsockopt(socketfd, SOL_SOCKET, SO_REUSEPORT, &opt, opt_size) < 0) {
+        error("setsockopt(SO_REUSEPORT) failed");
+    }
+    #endif
+
+    if (getsockopt(socketfd, SOL_SOCKET, SO_SNDBUF, &opt, &opt_size) < 0) {
+        error("getsockopt(SOL_SNDBUF) failed");
+    }
+    sock_buf_size = opt;
+
+    struct sockaddr_in server_addr;
+    // Set IP socket address
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(PORT);
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+
+    // Bind the address to the socket
+    if (bind(socketfd, (struct sockaddr *) &server_addr,
+        sizeof(server_addr)) < 0) {
+        error("bind failed");
+    }
+
+    // Listen for connections on the socket
+    if (listen(socketfd, BACKLOG) < 0) {
+        error("listen failed");
+    }
 
     int nparsed, recved;
     http_parser *parser = malloc(sizeof(http_parser));
@@ -46,60 +98,18 @@ int main(int argc, char *argv[]) {
     http_parser_init(parser, HTTP_REQUEST);
     parser->data = request;
 
-    // Create ipv4 TCP socket
-    if ((socketfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
-        perror("socket failed");
-        exit(EXIT_FAILURE);
-    }
-
-    // Set socket option to be reuse address to avoid error "Address already in use"
-    if (setsockopt(socketfd, SOL_SOCKET, SO_REUSEADDR, &opt,
-        (socklen_t) sizeof(opt)) < 0) {
-        perror("setsockopt(SO_REUSEADDR) failed");
-        exit(EXIT_FAILURE);
-    }
-
-    if (getsockopt(socketfd, SOL_SOCKET, SO_SNDBUF, &opt, &opt_size) < 0) {
-        perror("getsockopt(SO_SNDBUF) failed");
-        exit(EXIT_FAILURE);
-    }
-
-    sock_buf_size = opt;
-
-    // Required on Linux >= 3.9
-    #ifdef SO_REUSEPORT
-    if (setsockopt(socketfd, SOL_SOCKET, SO_REUSEPORT, &opt,
-        (socklen_t) sizeof(opt)) < 0) {
-        perror("setsockopt(SO_REUSEPORT) failed");
-        exit(EXIT_FAILURE);
-    }
-    #endif
-
-    // Set IP socket address
-    memset(&server_addr, 0, sizeof(server_addr));
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(PORT);
-    server_addr.sin_addr.s_addr = INADDR_ANY;
-
-    // Bind the address to the socket
-    if (bind(socketfd, (struct sockaddr *) &server_addr,
-        (socklen_t) sizeof(server_addr)) < 0) {
-        perror("bind failed");
-        exit(EXIT_FAILURE);
-    }
-
-    // Listen for connections on the socket
-    if (listen(socketfd, BACKLOG) < 0) {
-        perror("listen failed");
-        exit(EXIT_FAILURE);
-    }
+    char buffer[BUFFER_SIZE];
+    char *message;
 
     while (1) {
+        int new_socket;
+        struct sockaddr client_addr;
+        socklen_t client_addrlen;
+
         // Accept a connection on the socket
         if ((new_socket = accept(socketfd, (struct sockaddr *) &client_addr,
-            (socklen_t *) &client_addrlen)) < 0) {
-            perror("accept failed");
-            exit(EXIT_FAILURE);
+            &client_addrlen)) < 0) {
+            error("accept failed");
         }
 
         // Read data from the socket connected via accept()
@@ -127,7 +137,7 @@ int main(int argc, char *argv[]) {
 
         int msg_size;
         FILE *fp = NULL;
-        make_response(&message, &msg_size, &fp, (http_request_t *) parser->data);
+        // make_response(&message, &msg_size, &fp, (http_request_t *) parser->data);
         // printf("msg_size: %d\n", msg_size);
         // printf("%s\n", message);
         if (send(new_socket, message, msg_size, 0) < 0) {
