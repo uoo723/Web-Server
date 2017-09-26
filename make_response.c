@@ -6,18 +6,6 @@
 
 #include "make_response.h"
 
-#define MAX_HEADERS 50
-#define MAX_ELEMENT_SIZE 500
-#define BUFFER_SIZE (80*1024)
-
-typedef struct {
-    char status[50];
-    // char body[100*1024*1024]; // Up to 100 MB
-    int num_headers;
-    char headers[MAX_HEADERS][2][MAX_ELEMENT_SIZE];
-    int content_length;
-} http_response_t;
-
 static void get_current_time(char *buf, size_t len) {
     time_t now = time(NULL);
     struct tm tm = *gmtime(&now);
@@ -352,8 +340,22 @@ static void make_response_string(char **dst, int *dst_size,
     *dst_size = content_offset;
 }
 
+void print_http_response(http_response_t *response) {
+    int i;
+    printf("status: %s\n", response->status);
+
+    for (i = 0; i < response->num_headers; i++) {
+        printf("%s: %s\n", response->headers[i][0], response->headers[i][1]);
+    }
+
+    fflush(stdout);
+}
+
 void make_response(char **dst, int *dst_size, FILE **fp, http_request_t *request) {
-    // printf("make_response\n");
+    printf("-------- print request --------- \n");
+    print_http_request(request);
+    printf("-------- end print request --------- \n\n");
+    fflush(stdout);
     http_response_t *response = malloc(sizeof(http_response_t));
     char path[100] = "html";
     int content_length;
@@ -410,5 +412,9 @@ void make_response(char **dst, int *dst_size, FILE **fp, http_request_t *request
     // printf("dst_size: %d\n", *dst_size);
     // printf("%s\n", *dst);
     // *fd = fileno(fp);
+    printf("------- print http response ---------\n");
+    print_http_response(response);
+    printf("---------- end print http response ------------\n\n");
+    fflush(stdout);
     free(response);
 }
