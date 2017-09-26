@@ -4,9 +4,10 @@
 extern "C" {
 #endif
 
+#include <stdio.h>
 #include "http_request.h"
 
-void make_response(char **dst, int *dst_size, http_request_t *request);
+void make_response(char **dst, int *dst_size, FILE **fp, http_request_t *request);
 
 #ifdef __cplusplus
 }

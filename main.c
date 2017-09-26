@@ -5,6 +5,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <errno.h>
+#include <signal.h>
 
 #include "http_parser.h"
 #include "http_request.h"
@@ -14,13 +16,19 @@
 #define PORT 8080
 #define BACKLOG 10
 
+static void sigpipe_handler(int signum) { /* Do nothing */ }
+
 int main(int argc, char *argv[]) {
+    signal(SIGPIPE, sigpipe_handler);
+
     int socketfd, new_socket;
     struct sockaddr_in server_addr, client_addr;
     int opt = 1;
+    socklen_t opt_size = (socklen_t) sizeof(opt);
     int client_addrlen;
     char buffer[BUFFER_SIZE];
     char *message;
+    int sock_buf_size;
 
     int nparsed, recved;
     http_parser *parser = malloc(sizeof(http_parser));
@@ -50,6 +58,13 @@ int main(int argc, char *argv[]) {
         perror("setsockopt(SO_REUSEADDR) failed");
         exit(EXIT_FAILURE);
     }
+
+    if (getsockopt(socketfd, SOL_SOCKET, SO_SNDBUF, &opt, &opt_size) < 0) {
+        perror("getsockopt(SO_SNDBUF) failed");
+        exit(EXIT_FAILURE);
+    }
+
+    sock_buf_size = opt;
 
     // Required on Linux >= 3.9
     #ifdef SO_REUSEPORT
@@ -109,16 +124,37 @@ int main(int argc, char *argv[]) {
         }
 
         // print_http_request((http_request_t *) parser->data);
+
         int msg_size;
-        make_response(&message, &msg_size, (http_request_t *) parser->data);
+        FILE *fp = NULL;
+        make_response(&message, &msg_size, &fp, (http_request_t *) parser->data);
         // printf("msg_size: %d\n", msg_size);
         // printf("%s\n", message);
         if (send(new_socket, message, msg_size, 0) < 0) {
-            perror("write failed");
+            perror("send failed");
             exit(EXIT_FAILURE);
         }
 
         free(message);
+
+        if (fp) {
+            char *buffer = malloc(sock_buf_size);
+            int read;
+            while ((read = fread(buffer, 1, sock_buf_size, fp)) > 0) {
+                if (send(new_socket, buffer, read, 0) < 0) {
+                    if (errno != EPIPE) {
+                        perror("send file failed");
+                        exit(EXIT_FAILURE);
+                    }
+                }
+            }
+            if (ferror(fp)) {
+                fprintf(stderr, "fp error occurred\n");
+            }
+            free(buffer);
+            fclose(fp);
+        }
+
         close(new_socket);
     }
 

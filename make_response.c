@@ -8,19 +8,36 @@
 
 #define MAX_HEADERS 50
 #define MAX_ELEMENT_SIZE 500
+#define BUFFER_SIZE (80*1024)
 
 typedef struct {
     char status[50];
-    char body[100*1024*1024]; // Up to 100 MB
+    // char body[100*1024*1024]; // Up to 100 MB
     int num_headers;
     char headers[MAX_HEADERS][2][MAX_ELEMENT_SIZE];
     int content_length;
 } http_response_t;
 
+static void get_current_time(char *buf, size_t len) {
+    time_t now = time(NULL);
+    struct tm tm = *gmtime(&now);
+    strftime(buf, len, "%a, %d %b %Y %H:%M:%S GMT", &tm);
+}
+
 static void set_header(http_response_t *response, char *field, char *value) {
     strcpy(response->headers[response->num_headers][0], field);
     strcpy(response->headers[response->num_headers][1], value);
     response->num_headers++;
+}
+
+static void set_common_headers(http_response_t *response) {
+    char time_string[500] = {0};
+
+    get_current_time(time_string, 500);
+    set_header(response, "Date", time_string);
+    set_header(response, "Connection", "close");
+    set_header(response, "Server", "C Server/0.1");
+    set_header(response, "Accept-Ranges", "bytes");
 }
 
 static char *get_mime_type(char *path) {
@@ -52,12 +69,6 @@ static char *get_mime_type(char *path) {
     }
 
     return"text/plain";
-}
-
-static void get_current_time(char *buf, size_t len) {
-    time_t now = time(NULL);
-    struct tm tm = *gmtime(&now);
-    strftime(buf, len, "%a, %d %b %Y %H:%M:%S GMT", &tm);
 }
 
 static void set_status(http_response_t *response, enum http_status status) {
@@ -302,14 +313,12 @@ static void set_status(http_response_t *response, enum http_status status) {
 
 static void make_response_string(char **dst, int *dst_size,
     http_response_t *response) {
-
-    size_t size = sizeof(char) * (80 * 1024 + 100 * 1024 * 1024);
     size_t content_offset = 0;
     char *version = "HTTP/1.1 ";
     int i;
 
-    *dst = malloc(size);
-    memset(*dst, 0, size);
+    *dst = malloc(BUFFER_SIZE);
+    memset(*dst, 0, BUFFER_SIZE);
 
     strcat(*dst, version);
     content_offset += strlen(version);
@@ -330,25 +339,20 @@ static void make_response_string(char **dst, int *dst_size,
     }
     strcat(*dst, "\r\n");
     content_offset += 2;
-    memcpy(*dst + content_offset, response->body, response->content_length);
-    *dst_size = content_offset + response->content_length;
+    // memcpy(*dst + content_offset, response->body, response->content_length);
+    *dst_size = content_offset;
 }
 
-void make_response(char **dst, int *dst_size, http_request_t *request) {
+void make_response(char **dst, int *dst_size, FILE **fp, http_request_t *request) {
     // printf("make_response\n");
     http_response_t *response = malloc(sizeof(http_response_t));
     char path[100] = "html";
     int content_length;
     int is_server_error = 0;
-    char time_string[500] = {0};
     memset(response, 0, sizeof(http_response_t));
 
     set_status(response, HTTP_STATUS_OK);
-    get_current_time(time_string, 500);
-    set_header(response, "Date", time_string);
-    set_header(response, "Connection", "close");
-    set_header(response, "Server", "C Server/0.1");
-    set_header(response, "Accept-Ranges", "bytes");
+    set_common_headers(response);
 
     if (request->method != HTTP_GET) {
         set_status(response, HTTP_STATUS_METHOD_NOT_ALLOWED);
@@ -362,14 +366,15 @@ void make_response(char **dst, int *dst_size, http_request_t *request) {
         strcat(path, request->path);
     }
 
-    FILE *fp = fopen(path, "rb");
+    *fp = fopen(path, "rb");
 
-    if (!fp) {
+    if (!(*fp)) {
         if (errno == ENOENT) {
-            fp = fopen("html/404.html", "rb");
+            strcpy(path, "html/404.html");
+            *fp = fopen(path, "rb");
             set_status(response, HTTP_STATUS_NOT_FOUND);
 
-            if (!fp) {
+            if (!(*fp)) {
                 set_status(response, HTTP_STATUS_INTERNAL_SERVER_ERROR);
                 is_server_error = 1;
             }
@@ -380,11 +385,11 @@ void make_response(char **dst, int *dst_size, http_request_t *request) {
     }
 
     if (!is_server_error) {
-        fseek(fp, 0, SEEK_END);
-        response->content_length = content_length = ftell(fp);
-        fseek(fp, 0, SEEK_SET);
-        fread(response->body, sizeof(char), content_length, fp);
-        fclose(fp);
+        fseek(*fp, 0, SEEK_END);
+        response->content_length = content_length = ftell(*fp);
+        fseek(*fp, 0, SEEK_SET);
+        // fread(response->body, sizeof(char), content_length, *fp);
+        // fclose(fp);
 
         char str_content_len[100] = {0};
         sprintf(str_content_len, "%d", content_length);
@@ -395,5 +400,6 @@ void make_response(char **dst, int *dst_size, http_request_t *request) {
     make_response_string(dst, dst_size, response);
     // printf("dst_size: %d\n", *dst_size);
     // printf("%s\n", *dst);
+    // *fd = fileno(fp);
     free(response);
 }
