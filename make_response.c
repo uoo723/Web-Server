@@ -39,8 +39,16 @@ static char *get_mime_type(char *path) {
         return "text/css";
     }
 
-    if (strcmp(ext, "jpg") == 0 || strcmp(ext, "jpeg")) {
+    if (strcmp(ext, "png") == 0) {
+        return "image/png";
+    }
+
+    if (strcmp(ext, "jpg") == 0 || strcmp(ext, "jpeg") == 0) {
         return "image/jpeg";
+    }
+
+    if (strcmp(ext, "mp4") == 0) {
+        return "video/mp4";
     }
 
     return"text/plain";
@@ -327,7 +335,7 @@ static void make_response_string(char **dst, int *dst_size,
 }
 
 void make_response(char **dst, int *dst_size, http_request_t *request) {
-    printf("make_response\n");
+    // printf("make_response\n");
     http_response_t *response = malloc(sizeof(http_response_t));
     char path[100] = "html";
     int content_length;
@@ -377,7 +385,7 @@ void make_response(char **dst, int *dst_size, http_request_t *request) {
         fread(response->body, sizeof(char), content_length, fp);
         fclose(fp);
 
-        char str_content_len[sizeof(size_t)];
+        char str_content_len[100] = {0};
         sprintf(str_content_len, "%d", content_length);
         set_header(response, "Content-Length", str_content_len);
         set_header(response, "Content-Type", get_mime_type(path));

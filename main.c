@@ -111,7 +111,8 @@ int main(int argc, char *argv[]) {
         // print_http_request((http_request_t *) parser->data);
         int msg_size;
         make_response(&message, &msg_size, (http_request_t *) parser->data);
-
+        // printf("msg_size: %d\n", msg_size);
+        // printf("%s\n", message);
         if (send(new_socket, message, msg_size, 0) < 0) {
             perror("write failed");
             exit(EXIT_FAILURE);
