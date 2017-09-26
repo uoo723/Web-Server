@@ -4,7 +4,7 @@
 #include <errno.h>
 #include <time.h>
 
-#include "make_response.h"
+#include "http_response.h"
 
 static void get_current_time(char *buf, size_t len) {
     time_t now = time(NULL);
