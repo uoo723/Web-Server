@@ -25,6 +25,15 @@ static void get_current_time(char *buf, size_t len) {
 }
 
 static void set_header(http_response_t *response, char *field, char *value) {
+    int i;
+    for (i = 0; i < response->num_headers; i++) {
+        if (strcmp(response->headers[i][0], field) == 0) {
+            memset(response->headers[i][1], 0, MAX_ELEMENT_SIZE);
+            strcpy(response->headers[i][1], value);
+            return;
+        }
+    }
+
     strcpy(response->headers[response->num_headers][0], field);
     strcpy(response->headers[response->num_headers][1], value);
     response->num_headers++;
