@@ -57,7 +57,7 @@ static char *get_mime_type(char *path) {
 static void get_current_time(char *buf, size_t len) {
     time_t now = time(NULL);
     struct tm tm = *gmtime(&now);
-    strftime(buf, len, "%a, %d %b %Y %H:%M:%S %Z", &tm);
+    strftime(buf, len, "%a, %d %b %Y %H:%M:%S GMT", &tm);
 }
 
 static void set_status(http_response_t *response, enum http_status status) {
