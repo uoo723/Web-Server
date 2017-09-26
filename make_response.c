@@ -348,6 +348,7 @@ void make_response(char **dst, int *dst_size, http_request_t *request) {
     set_header(response, "Date", time_string);
     set_header(response, "Connection", "close");
     set_header(response, "Server", "C Server/0.1");
+    set_header(response, "Accept-Ranges", "bytes");
 
     if (request->method != HTTP_GET) {
         set_status(response, HTTP_STATUS_METHOD_NOT_ALLOWED);
