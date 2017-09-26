@@ -55,245 +55,185 @@ static char *get_mime_type(char *path) {
     return"text/plain";
 }
 
-void set_status(http_response_t *response, enum http_status status) {
-    memset(response->status, 0, STATUS_LEN);
-
+char *get_status_string(enum http_status status) {
     switch (status) {
     case HTTP_STATUS_CONTINUE:
-        strcpy(response->status, "100 Continue");
-        break;
+        return "100 Continue";
 
     case HTTP_STATUS_SWITCHING_PROTOCOLS:
-        strcpy(response->status, "101 Switching Protocols");
-        break;
+        return "101 Switching Protocols";
 
     case HTTP_STATUS_PROCESSING:
-        strcpy(response->status, "102 Switching Protocols");
-        break;
+        return "102 Switching Protocols";
 
     case HTTP_STATUS_OK:
-        strcpy(response->status, "200 OK");
-        break;
+        return "200 OK";
 
     case HTTP_STATUS_CREATED:
-        strcpy(response->status, "201 Created");
-        break;
+        return "201 Created";
 
     case HTTP_STATUS_ACCEPTED:
-        strcpy(response->status, "202 Accepted");
-        break;
+        return "202 Accepted";
 
     case HTTP_STATUS_NON_AUTHORITATIVE_INFORMATION:
-        strcpy(response->status, "203 Non-Authoritative Information");
-        break;
+        return "203 Non-Authoritative Information";
 
     case HTTP_STATUS_NO_CONTENT:
-        strcpy(response->status, "204 No Content");
-        break;
+        return "204 No Content";
 
     case HTTP_STATUS_RESET_CONTENT:
-        strcpy(response->status, "205 Reset Content");
-        break;
+        return "205 Reset Content";
 
     case HTTP_STATUS_PARTIAL_CONTENT:
-        strcpy(response->status, "206 Partial Content");
-        break;
+        return "206 Partial Content";
 
     case HTTP_STATUS_MULTI_STATUS:
-        strcpy(response->status, "207 Multi-Status");
-        break;
+        return "207 Multi-Status";
 
     case HTTP_STATUS_ALREADY_REPORTED:
-        strcpy(response->status, "208 Already Reported");
-        break;
+        return "208 Already Reported";
 
     case HTTP_STATUS_IM_USED:
-        strcpy(response->status, "226 IM Used");
-        break;
+        return "226 IM Used";
 
     case HTTP_STATUS_MULTIPLE_CHOICES:
-        strcpy(response->status, "300 Multiple Choices");
-        break;
+        return "300 Multiple Choices";
 
     case HTTP_STATUS_MOVED_PERMANENTLY:
-        strcpy(response->status, "301 Moved Permanently");
-        break;
+        return "301 Moved Permanently";
 
     case HTTP_STATUS_FOUND:
-        strcpy(response->status, "302 Found");
-        break;
+        return "302 Found";
 
     case HTTP_STATUS_SEE_OTHER:
-        strcpy(response->status, "303 See Other");
-        break;
+        return "303 See Other";
 
     case HTTP_STATUS_NOT_MODIFIED:
-        strcpy(response->status, "304 Not Modified");
-        break;
+        return "304 Not Modified";
 
     case HTTP_STATUS_USE_PROXY:
-        strcpy(response->status, "305 Use Proxy");
-        break;
+        return "305 Use Proxy";
 
     case HTTP_STATUS_TEMPORARY_REDIRECT:
-        strcpy(response->status, "307 Temporary Redirect");
-        break;
+        return "307 Temporary Redirect";
 
     case HTTP_STATUS_PERMANENT_REDIRECT:
-        strcpy(response->status, "308 Permanent Redirect");
-        break;
+        return "308 Permanent Redirect";
 
     case HTTP_STATUS_BAD_REQUEST:
-        strcpy(response->status, "400 Bad Request");
-        break;
+        return "400 Bad Request";
 
     case HTTP_STATUS_UNAUTHORIZED:
-        strcpy(response->status, "401 Unauthorized");
-        break;
+        return "401 Unauthorized";
 
     case HTTP_STATUS_PAYMENT_REQUIRED:
-        strcpy(response->status, "402 Payment Required");
-        break;
+        return "402 Payment Required";
 
     case HTTP_STATUS_FORBIDDEN:
-        strcpy(response->status, "403 Forbidden");
-        break;
+        return "403 Forbidden";
 
     case HTTP_STATUS_NOT_FOUND:
-        strcpy(response->status, "404 Not Found");
-        break;
+        return "404 Not Found";
 
     case HTTP_STATUS_METHOD_NOT_ALLOWED:
-        strcpy(response->status, "405 Method Not Allowed");
-        break;
+        return "405 Method Not Allowed";
 
     case HTTP_STATUS_NOT_ACCEPTABLE:
-        strcpy(response->status, "406 Not Acceptable");
-        break;
+        return "406 Not Acceptable";
 
     case HTTP_STATUS_PROXY_AUTHENTICATION_REQUIRED:
-        strcpy(response->status, "407 Proxy Authentication Required");
-        break;
+        return "407 Proxy Authentication Required";
 
     case HTTP_STATUS_REQUEST_TIMEOUT:
-        strcpy(response->status, "408 Request Timeout");
-        break;
+        return "408 Request Timeout";
 
     case HTTP_STATUS_CONFLICT:
-        strcpy(response->status, "409 Conflict");
-        break;
+        return "409 Conflict";
 
     case HTTP_STATUS_GONE:
-        strcpy(response->status, "410 Gone");
-        break;
+        return "410 Gone";
 
     case HTTP_STATUS_LENGTH_REQUIRED:
-        strcpy(response->status, "411 Length Required");
-        break;
+        return "411 Length Required";
 
     case HTTP_STATUS_PRECONDITION_FAILED:
-        strcpy(response->status, "412 Precondition Failed");
-        break;
+        return "412 Precondition Failed";
 
     case HTTP_STATUS_PAYLOAD_TOO_LARGE:
-        strcpy(response->status, "413 Payload Too Large");
-        break;
+        return "413 Payload Too Large";
 
     case HTTP_STATUS_URI_TOO_LONG:
-        strcpy(response->status, "414 URI Too Long");
-        break;
+        return  "414 URI Too Long";
 
     case HTTP_STATUS_UNSUPPORTED_MEDIA_TYPE:
-        strcpy(response->status, "415 Unsupported Media Type");
-        break;
+        return "415 Unsupported Media Type";
 
     case HTTP_STATUS_RANGE_NOT_SATISFIABLE:
-        strcpy(response->status, "416 Range Not Satisfiable");
-        break;
+        return "416 Range Not Satisfiable";
 
     case HTTP_STATUS_EXPECTATION_FAILED:
-        strcpy(response->status, "417 Expectation Failed");
-        break;
+        return "417 Expectation Failed";
 
     case HTTP_STATUS_MISDIRECTED_REQUEST:
-        strcpy(response->status, "421 Misdirected Request");
+        return "421 Misdirected Request";
         break;
 
     case HTTP_STATUS_UNPROCESSABLE_ENTITY:
-        strcpy(response->status, "422 Unprocessable Entity");
-        break;
+        return "422 Unprocessable Entity";
 
     case HTTP_STATUS_LOCKED:
-        strcpy(response->status, "423 Locked");
-        break;
+        return "423 Locked";
 
     case HTTP_STATUS_FAILED_DEPENDENCY:
-        strcpy(response->status, "424 Failed Dependency");
-        break;
+        return "424 Failed Dependency";
 
     case HTTP_STATUS_UPGRADE_REQUIRED:
-        strcpy(response->status, "426 Upgrade Required");
-        break;
+        return "426 Upgrade Required";
 
     case HTTP_STATUS_PRECONDITION_REQUIRED:
-        strcpy(response->status, "428 Precondition Required");
-        break;
+        return "428 Precondition Required";
 
     case HTTP_STATUS_TOO_MANY_REQUESTS:
-        strcpy(response->status, "429 Too Many Requests");
-        break;
+        return "429 Too Many Requests";
 
     case HTTP_STATUS_REQUEST_HEADER_FIELDS_TOO_LARGE:
-        strcpy(response->status, "431 Request Header Fields Too Large");
-        break;
+        return "431 Request Header Fields Too Large";
 
     case HTTP_STATUS_UNAVAILABLE_FOR_LEGAL_REASONS:
-        strcpy(response->status, "451 Unavailable For Legal Reasons");
-        break;
+        return "451 Unavailable For Legal Reasons";
 
     case HTTP_STATUS_INTERNAL_SERVER_ERROR:
-        strcpy(response->status, "500 Internal Server Error");
-        break;
+        return "500 Internal Server Error";
 
     case HTTP_STATUS_NOT_IMPLEMENTED:
-        strcpy(response->status, "501 Not Implemented");
-        break;
+        return "501 Not Implemented";
 
     case HTTP_STATUS_BAD_GATEWAY:
-        strcpy(response->status, "502 Bad Gateway");
-        break;
+        return "502 Bad Gateway";
 
     case HTTP_STATUS_SERVICE_UNAVAILABLE:
-        strcpy(response->status, "503 Service Unavailable");
-        break;
+        return "503 Service Unavailable";
 
     case HTTP_STATUS_GATEWAY_TIMEOUT:
-        strcpy(response->status, "504 Gateway Timeout");
-        break;
+        return "504 Gateway Timeout";
 
     case HTTP_STATUS_HTTP_VERSION_NOT_SUPPORTED:
-        strcpy(response->status, "505 HTTP Version Not Supported");
-        break;
+        return "505 HTTP Version Not Supported";
 
     case HTTP_STATUS_VARIANT_ALSO_NEGOTIATES:
-        strcpy(response->status, "506 Variant Also Negotiates");
-        break;
+        return "506 Variant Also Negotiates";
 
     case HTTP_STATUS_INSUFFICIENT_STORAGE:
-        strcpy(response->status, "507 Insufficient Storage");
-        break;
+        return "507 Insufficient Storage";
 
     case HTTP_STATUS_LOOP_DETECTED:
-        strcpy(response->status, "508 Loop Detected");
-        break;
+        return "508 Loop Detected";
 
     case HTTP_STATUS_NOT_EXTENDED:
-        strcpy(response->status, "510 Not Extended");
-        break;
+        return "510 Not Extended";
 
     case HTTP_STATUS_NETWORK_AUTHENTICATION_REQUIRED:
-        strcpy(response->status, "511 Network Authentication Required");
-        break;
+        return "511 Network Authentication Required";
     }
 }
 
@@ -321,11 +261,11 @@ void make_response(http_response_t *response, http_request_t *request) {
     char path[100] = "html";
     int is_server_error = 0;
 
-    set_status(response, HTTP_STATUS_OK);
+    response->status = HTTP_STATUS_OK;
     set_common_headers(response);
 
     if (request->method != HTTP_GET) {
-        set_status(response, HTTP_STATUS_METHOD_NOT_ALLOWED);
+        response->status = HTTP_STATUS_METHOD_NOT_ALLOWED;
         return;
     }
 
@@ -341,14 +281,14 @@ void make_response(http_response_t *response, http_request_t *request) {
         if (errno == ENOENT) {
             strcpy(path, "html/404.html");
             fp = fopen(path, "rb");
-            set_status(response, HTTP_STATUS_NOT_FOUND);
+            response->status = HTTP_STATUS_NOT_FOUND;
 
             if (!fp) {
-                set_status(response, HTTP_STATUS_INTERNAL_SERVER_ERROR);
+                response->status = HTTP_STATUS_INTERNAL_SERVER_ERROR;
                 is_server_error = 1;
             }
         } else {
-            set_status(response, HTTP_STATUS_INTERNAL_SERVER_ERROR);
+            response->status = HTTP_STATUS_INTERNAL_SERVER_ERROR;
             is_server_error = 1;
         }
     }
@@ -380,6 +320,7 @@ void make_response(http_response_t *response, http_request_t *request) {
 void make_response_string(http_response_t *response, char **dst, int *dst_size) {
     size_t content_offset = 0;
     char *version = "HTTP/1.1 ";
+    char *status_string = get_status_string(response->status);
     int i;
 
     *dst = malloc(BUFFER_SIZE);
@@ -387,8 +328,8 @@ void make_response_string(http_response_t *response, char **dst, int *dst_size) 
 
     strcat(*dst, version);
     content_offset += strlen(version);
-    strcat(*dst, response->status);
-    content_offset += strlen(response->status);
+    strcat(*dst, status_string);
+    content_offset += strlen(status_string);
     strcat(*dst, "\r\n");
     content_offset += 2;
 
@@ -410,7 +351,7 @@ void make_response_string(http_response_t *response, char **dst, int *dst_size) 
 
 void print_http_response(http_response_t *response) {
     int i;
-    printf("status: %s\n", response->status);
+    printf("status: %s\n", get_status_string(response->status));
 
     for (i = 0; i < response->num_headers; i++) {
         printf("%s: %s\n", response->headers[i][0], response->headers[i][1]);
