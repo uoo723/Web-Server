@@ -7,6 +7,7 @@ extern "C" {
 #include <string.h>
 
 char *find_header_value(char **fields, char **values, int num, char *search);
+void get_ranges(char *str, int *start, int *end);
 
 #ifdef __cplusplus
 }

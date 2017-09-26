@@ -20,7 +20,7 @@ static void set_common_headers(http_response_t *response) {
     get_current_time(time_string, 500);
     set_header(response, "Date", time_string);
     set_header(response, "Connection", "close");
-    set_header(response, "Server", "C Server/0.1");
+    set_header(response, "Server", "CServer/0.1");
     set_header(response, "Accept-Ranges", "bytes");
 }
 
@@ -322,9 +322,6 @@ void make_response_string(http_response_t *response, char **dst, int *dst_size) 
     char *version = "HTTP/1.1 ";
     char *status_string = get_status_string(response->status);
     int i;
-
-    *dst = malloc(BUFFER_SIZE);
-    memset(*dst, 0, BUFFER_SIZE);
 
     strcat(*dst, version);
     content_offset += strlen(version);

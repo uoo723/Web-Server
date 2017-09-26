@@ -11,6 +11,7 @@
 #include "http_parser.h"
 #include "http_request.h"
 #include "http_response.h"
+#include "http_utils.h"
 
 #define BUFFER_SIZE (80*1024)
 #define PORT 8080
@@ -23,13 +24,104 @@ static void error(char *str) {
     exit(EXIT_FAILURE);
 }
 
-static void recv_request(int socketfd, http_parser *parser) {
+static void recv_request(int socketfd, http_parser *parser,
+    http_parser_settings *settings, http_response_t *response) {
     int nparsed, recved;
-    char buffer[BUFFER_SIZE];
+    char buffer[BUFFER_SIZE] = {0};
+    int buf_size;
+    // int total = 0;
+    socklen_t opt_size = sizeof(buf_size);
+
     memset(buffer, 0, BUFFER_SIZE);
 
-    while ((recved = recv(socketfd, buffer, BUFFER_SIZE, 0)) >= 0) {
-        // if ()
+    if (getsockopt(socketfd, SOL_SOCKET, SO_RCVBUF, &buf_size, &opt_size) < 0) {
+        error("getsockopt(SO_RCVBUF) failed");
+    }
+
+    if ((recved = recv(socketfd, buffer, BUFFER_SIZE, 0)) < 0) {
+        if (errno != EPIPE) {
+            error("recv failed");
+        }
+    }
+
+    nparsed = http_parser_execute(parser, settings, buffer, recved);
+    if (parser->upgrade) { /* Do nothing */ }
+    else if (nparsed != recved) {
+        fprintf(stderr, "nparsed != reved");
+        exit(EXIT_FAILURE);
+    }
+
+    // while ((recved = recv(socketfd, buffer, BUFFER_SIZE, 0)) >= 0) {
+    //     printf("recved: %d\n", recved);
+    //     if (recved == 0) break;
+    //
+    //     nparsed = http_parser_execute(parser, settings, buffer, recved);
+    //     if (parser->upgrade) { /* Do nothing */ }
+    //     else if (nparsed != recved) {
+    //         fprintf(stderr, "nparsed != reved");
+    //         exit(EXIT_FAILURE);
+    //     }
+    //
+    //     total += nparsed;
+    //
+    //     if (total > BUFFER_SIZE) {
+    //         response->status = HTTP_STATUS_PAYLOAD_TOO_LARGE;
+    //         break;
+    //     }
+    // }
+    //
+    // if (recved < 0) {
+    //     if (errno != EPIPE) {
+    //         error("recv failed");
+    //     }
+    // }
+}
+
+static void send_response(int socketfd, http_response_t *response,
+    http_request_t *request) {
+    char buffer[BUFFER_SIZE] = {0};
+    int buf_size;
+    socklen_t opt_size = sizeof(buf_size);
+
+    memset(buffer, 0, BUFFER_SIZE);
+
+    if (getsockopt(socketfd, SOL_SOCKET, SO_SNDBUF, &buf_size, &opt_size) < 0) {
+        error("getsockopt(SO_SNDBUF) failed");
+    }
+
+    make_response(response, request);
+
+    int dst_size;
+    char *dst = &buffer[0];
+    make_response_string(response, &dst, &dst_size);
+
+    if (send(socketfd, buffer, dst_size, 0) < 0) {
+        if (errno != EPIPE) {
+            error("send failed");
+        }
+    }
+
+    FILE *fp = (FILE *) response->content;
+
+    if (fp) {
+        int read = 0;
+        while ((read = fread(buffer, 1, BUFFER_SIZE, fp)) >= 0) {
+            if (read == 0) break;
+            if (send(socketfd, buffer, read, 0) < 0) {
+                if (errno != EPIPE) {
+                    error("send file failed");
+                }
+            }
+        }
+
+        if (read < 0) {
+            error("fread failed");
+        }
+
+        if (ferror(fp)) {
+            fprintf(stderr, "ferror(fp)\n");
+        }
+        fclose(fp);
     }
 }
 
@@ -39,7 +131,7 @@ int main(int argc, char *argv[]) {
     int socketfd;
     int opt;
     int sock_buf_size;
-    socklen_t opt_size = (socklen_t) sizeof(opt);
+    socklen_t opt_size = sizeof(opt);
 
     // Create ipv4 TCP socket
     if ((socketfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
@@ -82,10 +174,10 @@ int main(int argc, char *argv[]) {
         error("listen failed");
     }
 
-    int nparsed, recved;
     http_parser *parser = malloc(sizeof(http_parser));
     http_parser_settings settings;
     http_request_t *request = malloc(sizeof(http_request_t));
+    http_response_t *response = malloc(sizeof(http_response_t));
 
     http_parser_settings_init(&settings);
 
@@ -98,9 +190,6 @@ int main(int argc, char *argv[]) {
     http_parser_init(parser, HTTP_REQUEST);
     parser->data = request;
 
-    char buffer[BUFFER_SIZE];
-    char *message;
-
     while (1) {
         int new_socket;
         struct sockaddr client_addr;
@@ -112,63 +201,26 @@ int main(int argc, char *argv[]) {
             error("accept failed");
         }
 
-        // Read data from the socket connected via accept()
-        memset(buffer, 0, BUFFER_SIZE);
-
-        recved = recv(new_socket, buffer, BUFFER_SIZE, 0);
-        if (recved < 0) {
-            perror("read failed");
-            exit(EXIT_FAILURE);
-        }
-
         memset(request, 0, sizeof(http_request_t));
+        memset(response, 0, sizeof(http_response_t));
 
-        nparsed = http_parser_execute(parser, &settings, buffer, recved);
-
-        if (parser->upgrade) {
-            /* handle new protocol */
-        } else if (nparsed != recved) {
-            /* Handle error. Usually just close the connection. */
-            fprintf(stderr, "nparsed != reved");
-            exit(EXIT_FAILURE);
-        }
+        // printf("enter recv_request\n");
+        recv_request(new_socket, parser, &settings, response);
+        // printf("exit recv_request\n");
+        // fflush(stdout);
 
         // print_http_request((http_request_t *) parser->data);
 
-        int msg_size;
-        FILE *fp = NULL;
-        // make_response(&message, &msg_size, &fp, (http_request_t *) parser->data);
-        // printf("msg_size: %d\n", msg_size);
-        // printf("%s\n", message);
-        if (send(new_socket, message, msg_size, 0) < 0) {
-            perror("send failed");
-            exit(EXIT_FAILURE);
-        }
-
-        free(message);
-
-        if (fp) {
-            char *buffer = malloc(sock_buf_size);
-            int read;
-            while ((read = fread(buffer, 1, sock_buf_size, fp)) > 0) {
-                if (send(new_socket, buffer, read, 0) < 0) {
-                    if (errno != EPIPE) {
-                        perror("send file failed");
-                        exit(EXIT_FAILURE);
-                    }
-                }
-            }
-            if (ferror(fp)) {
-                fprintf(stderr, "fp error occurred\n");
-            }
-            free(buffer);
-            fclose(fp);
-        }
+        // printf("enter send_response\n");
+        send_response(new_socket, response, request);
+        // printf("exit send_response\n");
+        // fflush(stdout);
 
         close(new_socket);
     }
 
     free(request);
+    free(response);
     close(socketfd);
 
     return 0;
