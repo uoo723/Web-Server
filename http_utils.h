@@ -1,5 +1,5 @@
-#ifndef HTTP_COMMON_H
-#define HTTP_COMMON_H
+#ifndef HTTP_UTILS_H
+#define HTTP_UTILS_H
 #ifdef __cplusplus
 extern "C" {
 #endif
