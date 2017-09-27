@@ -6,8 +6,6 @@
 
 #include "http_response.h"
 
-#define BUFFER_SIZE (80*1024)
-
 static void get_current_time(char *buf, size_t len) {
     time_t now = time(NULL);
     struct tm tm = *gmtime(&now);
