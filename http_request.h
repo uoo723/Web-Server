@@ -17,6 +17,7 @@ typedef struct {
     int num_headers;
     char body[MAX_ELEMENT_SIZE];
     int method;
+    int on_message_completed;
 } http_request_t;
 
 void print_http_request(http_request_t *request);
