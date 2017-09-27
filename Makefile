@@ -12,7 +12,7 @@ MKDIR = mkdir -p
 all: dir $(TARGET)
 
 $(TARGET): $(OBJS)
-	$(CC) -o $@ $(OBJS)
+	$(CC) $(CFLAGS) -o $@ $(OBJS) -lpthread
 
 $(OBJS): $(SRCS) $(HEADERS)
 	$(CC) $(CFLAGS) $(debug) -c -o $@ $(subst $(BUILD)/,,$(@:.o=.c)) -I.

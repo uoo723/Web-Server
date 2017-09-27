@@ -7,11 +7,13 @@
 #include <netinet/in.h>
 #include <errno.h>
 #include <signal.h>
+#include <pthread.h>
 
 #include "http_parser.h"
 #include "http_request.h"
 #include "http_response.h"
 #include "http_utils.h"
+#include "thpool.h"
 
 #define BUFFER_SIZE (80*1024)
 #define PORT 8080
