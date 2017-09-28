@@ -38,7 +38,11 @@ static void recv_request(int sockfd, http_parser *parser,
 
     while (1) {
         if ((recved = recv(sockfd, buf, BUFFER_SIZE, 0)) < 0) {
-            if (errno != EPIPE) {
+            if (errno == EPIPE) {
+                break;
+            } else if (errno == EPROTOTYPE) {
+                continue;
+            } else {
                 error("recv failed");
             }
         }
@@ -70,6 +74,7 @@ static void send_response(int sockfd, http_response_t *response,
     char *buf;
     int buf_size;
     socklen_t opt_size = sizeof(int);
+    int socket_error = 0;
 
     if (getsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &buf_size, &opt_size) < 0) {
         error("getsockopt(SO_SNDBUF) failed");
@@ -88,12 +93,19 @@ static void send_response(int sockfd, http_response_t *response,
     make_response_string(response, &dst, &dst_size);
 
     if (send(sockfd, buf, dst_size, 0) < 0) {
-        if (errno != EPIPE) {
+        if (errno == EPIPE || errno == EPROTOTYPE) {
+            socket_error = 1;
+        } else {
             error("send failed");
         }
     }
 
     FILE *fp = (FILE *) response->content;
+
+    if (socket_error) {
+        if (fp) fclose(fp);
+        return;
+    }
 
     if (fp) {
         int read = 0;
@@ -105,8 +117,12 @@ static void send_response(int sockfd, http_response_t *response,
             // printf("send\n");
             // print_http_request(request);
             if (send(sockfd, buf, read, 0) < 0) {
-                if (errno != EPIPE) {
-                    error("send file failed");
+                if (errno == EPIPE) {
+                    break;
+                } else if (errno == EPROTOTYPE) {
+                    continue;
+                } else {
+                    error("send content failed");
                 }
             }
             // printf("send end\n");
