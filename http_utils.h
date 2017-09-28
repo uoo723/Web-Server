@@ -5,8 +5,9 @@ extern "C" {
 #endif
 
 #include <string.h>
+#include "http_request.h"
 
-char *find_header_value(char **fields, char **values, int num, char *search);
+char *find_header_value(http_request_t *request, char *search);
 void get_ranges(char *str, int *start, int *end);
 
 #ifdef __cplusplus

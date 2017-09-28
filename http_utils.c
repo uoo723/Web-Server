@@ -1,10 +1,10 @@
 #include "http_utils.h"
 
-char *find_header_value(char **fields, char **values, int num, char *search) {
+char *find_header_value(http_request_t *request, char *search) {
     int i;
-    for (i = 0; i < num; i++) {
-        if (strcmp(fields[i], search) == 0) {
-            return values[i];
+    for (i = 0; i < request->num_headers; i++) {
+        if (strcmp(request->headers[i][0], search) == 0) {
+            return request->headers[i][1];
         }
     }
 

@@ -15,6 +15,7 @@
 #include "http_utils.h"
 #include "thpool.h"
 
+#define BUFFER_SIZE (80*1024)
 #define PORT 8080
 #define BACKLOG 10
 #define THREAD 4
@@ -30,26 +31,22 @@ static void error(char *str) {
 
 static void recv_request(int sockfd, http_parser *parser,
     http_parser_settings *settings, http_response_t *response) {
+    http_request_t *request;
     int nparsed, recved;
-    char *buf;
-    int buf_size;
-    // int total = 0;
-    socklen_t opt_size = sizeof(int);
-
-    if (getsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &buf_size, &opt_size) < 0) {
-        printf("sockfd: %d\n", sockfd);
-        error("getsockopt(SO_RCVBUF) failed");
-    }
-
-    buf = malloc(buf_size);
-    memset(buf, 0, buf_size);
+    int total_recved = 0;
+    char buf[BUFFER_SIZE];
 
     while (1) {
-        if ((recved = recv(sockfd, buf, buf_size, 0)) < 0) {
+        if ((recved = recv(sockfd, buf, BUFFER_SIZE, 0)) < 0) {
             if (errno != EPIPE) {
-                printf("sockfd: %d\n", sockfd);
                 error("recv failed");
             }
+        }
+
+        total_recved += recved;
+
+        if (total_recved > BUFFER_SIZE) {
+            // TODO: 413 Payload Too Large
             break;
         }
 
@@ -60,12 +57,12 @@ static void recv_request(int sockfd, http_parser *parser,
             exit(EXIT_FAILURE);
         }
 
-        http_request_t *request = (http_request_t *) parser->data;
-        print_http_request(request);
-        if (request->on_message_completed) break;
+        request = (http_request_t *) parser->data;
+        // print_http_request(request);
+        if (request->on_message_completed) {
+            break;
+        }
     }
-
-    free(buf);
 }
 
 static void send_response(int sockfd, http_response_t *response,
@@ -75,10 +72,12 @@ static void send_response(int sockfd, http_response_t *response,
     socklen_t opt_size = sizeof(int);
 
     if (getsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &buf_size, &opt_size) < 0) {
-        printf("sockfd: %d\n", sockfd);
         error("getsockopt(SO_SNDBUF) failed");
     }
 
+    // print_http_request(request);
+    char *value = find_header_value(request, "Range");
+    printf("Ranges: %s\n", value);
     buf = malloc(buf_size);
     memset(buf, 0, buf_size);
 
@@ -90,7 +89,6 @@ static void send_response(int sockfd, http_response_t *response,
 
     if (send(sockfd, buf, dst_size, 0) < 0) {
         if (errno != EPIPE) {
-            printf("sockfd: %d\n", sockfd);
             error("send failed");
         }
     }
@@ -99,16 +97,15 @@ static void send_response(int sockfd, http_response_t *response,
 
     if (fp) {
         int read = 0;
-        char *content_buf = malloc(buf_size);
-        while ((read = fread(content_buf, 1, buf_size, fp)) >= 0) {
+        memset(buf, 0, buf_size);
+        while ((read = fread(buf, 1, buf_size, fp)) >= 0) {
             // printf("read: %d\n", read);
             // printf("buf_size: %d\n", buf_size);
             if (read == 0) break;
             // printf("send\n");
             // print_http_request(request);
-            if (send(sockfd, content_buf, read, 0) < 0) {
+            if (send(sockfd, buf, read, 0) < 0) {
                 if (errno != EPIPE) {
-                    printf("sockfd: %d\n", sockfd);
                     error("send file failed");
                 }
             }
@@ -123,8 +120,6 @@ static void send_response(int sockfd, http_response_t *response,
             fprintf(stderr, "ferror(fp)\n");
         }
 
-        free(buf);
-        free(content_buf);
         fclose(fp);
     }
 }
@@ -228,7 +223,7 @@ int main(int argc, char *argv[]) {
         }
 
         thpool_add_work(thpool, (void *) thread_main, (void *) new_socket);
-        printf("# of threads in running: %d\n", thpool_num_threads_working(thpool));
+        // printf("# of threads in running: %d\n", thpool_num_threads_working(thpool));
         // memset(request, 0, sizeof(http_request_t));
         // memset(response, 0, sizeof(http_response_t));
         //
