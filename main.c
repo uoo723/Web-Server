@@ -37,51 +37,35 @@ static void recv_request(int sockfd, http_parser *parser,
     socklen_t opt_size = sizeof(int);
 
     if (getsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &buf_size, &opt_size) < 0) {
+        printf("sockfd: %d\n", sockfd);
         error("getsockopt(SO_RCVBUF) failed");
     }
 
     buf = malloc(buf_size);
     memset(buf, 0, buf_size);
 
-    if ((recved = recv(sockfd, buf, buf_size, 0)) < 0) {
-        if (errno != EPIPE) {
-            error("recv failed");
+    while (1) {
+        if ((recved = recv(sockfd, buf, buf_size, 0)) < 0) {
+            if (errno != EPIPE) {
+                printf("sockfd: %d\n", sockfd);
+                error("recv failed");
+            }
+            break;
         }
-    }
 
-    nparsed = http_parser_execute(parser, settings, buf, recved);
-    if (parser->upgrade) { /* Do nothing */ }
-    else if (nparsed != recved) {
-        fprintf(stderr, "nparsed != reved");
-        exit(EXIT_FAILURE);
+        nparsed = http_parser_execute(parser, settings, buf, recved);
+        if (parser->upgrade) { /* Do nothing */ }
+        else if (nparsed != recved) {
+            fprintf(stderr, "nparsed != reved");
+            exit(EXIT_FAILURE);
+        }
+
+        http_request_t *request = (http_request_t *) parser->data;
+        print_http_request(request);
+        if (request->on_message_completed) break;
     }
 
     free(buf);
-
-    // while ((recved = recv(sockfd, buffer, BUFFER_SIZE, 0)) >= 0) {
-    //     printf("recved: %d\n", recved);
-    //     if (recved == 0) break;
-    //
-    //     nparsed = http_parser_execute(parser, settings, buffer, recved);
-    //     if (parser->upgrade) { /* Do nothing */ }
-    //     else if (nparsed != recved) {
-    //         fprintf(stderr, "nparsed != reved");
-    //         exit(EXIT_FAILURE);
-    //     }
-    //
-    //     total += nparsed;
-    //
-    //     if (total > BUFFER_SIZE) {
-    //         response->status = HTTP_STATUS_PAYLOAD_TOO_LARGE;
-    //         break;
-    //     }
-    // }
-    //
-    // if (recved < 0) {
-    //     if (errno != EPIPE) {
-    //         error("recv failed");
-    //     }
-    // }
 }
 
 static void send_response(int sockfd, http_response_t *response,
@@ -91,6 +75,7 @@ static void send_response(int sockfd, http_response_t *response,
     socklen_t opt_size = sizeof(int);
 
     if (getsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &buf_size, &opt_size) < 0) {
+        printf("sockfd: %d\n", sockfd);
         error("getsockopt(SO_SNDBUF) failed");
     }
 
@@ -105,6 +90,7 @@ static void send_response(int sockfd, http_response_t *response,
 
     if (send(sockfd, buf, dst_size, 0) < 0) {
         if (errno != EPIPE) {
+            printf("sockfd: %d\n", sockfd);
             error("send failed");
         }
     }
@@ -122,6 +108,7 @@ static void send_response(int sockfd, http_response_t *response,
             // print_http_request(request);
             if (send(sockfd, content_buf, read, 0) < 0) {
                 if (errno != EPIPE) {
+                    printf("sockfd: %d\n", sockfd);
                     error("send file failed");
                 }
             }
@@ -143,11 +130,13 @@ static void send_response(int sockfd, http_response_t *response,
 }
 
 static void thread_main(void *data) {
-    int sockfd = *(int *) data;
+    int *sockfd = (int *) data;
     http_parser *parser = malloc(sizeof(http_parser));
     http_request_t *request = malloc(sizeof(http_request_t));
     http_response_t *response = malloc(sizeof(http_response_t));
     http_parser_settings settings;
+
+    printf("sockfd: %d %p, in %u\n", *sockfd, sockfd, (unsigned int) pthread_self());
 
     http_parser_settings_init(&settings);
     settings.on_url = on_url_cb;
@@ -162,13 +151,14 @@ static void thread_main(void *data) {
     memset(request, 0, sizeof(http_request_t));
     memset(response, 0, sizeof(http_response_t));
 
-    recv_request(sockfd, parser, &settings, response);
-    send_response(sockfd, response, request);
+    recv_request(*sockfd, parser, &settings, response);
+    send_response(*sockfd, response, request);
 
     free(parser);
     free(request);
     free(response);
-    close(sockfd);
+    close(*sockfd);
+    free(sockfd);
 }
 
 int main(int argc, char *argv[]) {
@@ -226,36 +216,19 @@ int main(int argc, char *argv[]) {
         error("listen failed");
     }
 
-    http_parser *parser = malloc(sizeof(http_parser));
-    http_parser_settings settings;
-    http_request_t *request = malloc(sizeof(http_request_t));
-    http_response_t *response = malloc(sizeof(http_response_t));
-
-    http_parser_settings_init(&settings);
-
-    settings.on_url = on_url_cb;
-    settings.on_header_field = on_header_field_cb;
-    settings.on_header_value = on_header_value_cb;
-    settings.on_body = on_body_cb;
-    settings.on_message_complete = on_message_complete_cb;
-
-    http_parser_init(parser, HTTP_REQUEST);
-    parser->data = request;
-
     while (1) {
-        int new_socket;
+        int *new_socket = malloc(sizeof(int));
         struct sockaddr client_addr;
         socklen_t client_addrlen;
 
         // Accept a connection on the socket
-        if ((new_socket = accept(sockfd, (struct sockaddr *) &client_addr,
+        if ((*new_socket = accept(sockfd, (struct sockaddr *) &client_addr,
             &client_addrlen)) < 0) {
             error("accept failed");
         }
 
-        printf("socket fd: %d\n", new_socket);
-        thpool_add_work(thpool, (void *) thread_main, (void *) &new_socket);
-        printf("# of running thread: %d\n", thpool_num_threads_working(thpool));
+        thpool_add_work(thpool, (void *) thread_main, (void *) new_socket);
+        printf("# of threads in running: %d\n", thpool_num_threads_working(thpool));
         // memset(request, 0, sizeof(http_request_t));
         // memset(response, 0, sizeof(http_response_t));
         //
@@ -274,8 +247,6 @@ int main(int argc, char *argv[]) {
         // close(new_socket);
     }
 
-    free(request);
-    free(response);
     close(sockfd);
     thpool_destroy(thpool);
 
