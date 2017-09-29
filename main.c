@@ -82,8 +82,13 @@ static void send_response(int sockfd, http_response_t *response,
 
     print_http_request(request);
     char *value = find_header_value(&request->headers, "Range");
-    // printf("Range: %s\n", value);
-    // get_range(value, NULL);
+    range_t range;
+    if (value != NULL) {
+        printf("Range: %s\n", value);
+        get_range(value, &range);
+        print_range(&range);
+    }
+
     buf = malloc(buf_size);
     memset(buf, 0, buf_size);
 

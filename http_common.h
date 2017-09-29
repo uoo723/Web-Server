@@ -4,8 +4,6 @@
 extern "C" {
 #endif
 
-#include <string.h>
-
 #define MAX_HEADERS 50
 #define MAX_ELEMENT_SIZE 500
 #define MAX_RANGE 50
@@ -18,13 +16,15 @@ typedef struct {
 
 typedef struct {
     enum { NONE=0, BYTES } unit;
-    int range[MAX_RANGE][2];
+    int start[MAX_RANGE];
+    int end[MAX_RANGE];
     int num_range;
 } range_t;
 
 void set_header(http_headers_t *headers, char *field, char *value);
 char *find_header_value(http_headers_t *headers, char *search);
 int get_range(char *str, range_t *range);
+void print_range(range_t *range);
 
 #ifdef __cplusplus
 }

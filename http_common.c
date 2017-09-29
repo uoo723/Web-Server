@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "http_common.h"
 
 void set_header(http_headers_t *headers, char *field, char *value) {
@@ -29,8 +30,20 @@ char *find_header_value(http_headers_t *headers, char *search) {
 }
 
 int get_range(char *str, range_t *range) {
-    char *unit = strtok(str, "=");
+    memset(range, 0, sizeof(range_t));
+
+    char *tmp_str = malloc(sizeof(strlen(str)) + 1);
+    char *tmp2_str = tmp_str;
+    if (tmp_str == NULL) {
+        return -1;
+    }
+
+    strcpy(tmp_str, str);
+
+    char *unit = strsep(&tmp_str, "=");
+
     if (unit == NULL) {
+        free(tmp2_str);
         return -1;
     }
 
@@ -40,17 +53,45 @@ int get_range(char *str, range_t *range) {
         range->unit = NONE;
     }
 
-    char *ranges = strtok(NULL, "=");
+    char *ranges = strsep(&tmp_str, "=");
 
     if (ranges == NULL) {
+        free(tmp2_str);
         return -1;
     }
 
-    char *range_str = strtok(ranges, ", ");
+    do {
+        char *range_str = strsep(&ranges, ",\t");
+        if (range_str != NULL) {
+            char *start = strsep(&range_str, "-");
+            if (start != NULL) {
+                range->start[range->num_range] = atoi(start);
+                if (strcmp(range_str, "\0") == 0) {
+                    range->end[range->num_range++] = -1;
+                } else {
+                    char *end = strsep(&range_str, "-");
+                    if (end != NULL) {
+                        range->end[range->num_range++] = atoi(end);
+                    }
+                }
+            }
+        }
+    } while (ranges != NULL);
 
-    if (range_str == NULL) {
-        char *ranges_str = strtok(ranges, "");
-    }
-
+    free(tmp2_str);
     return 0;
+}
+
+void print_range(range_t *range) {
+    char *unit = range->unit == 1 ? "bytes" : "none";
+    printf("%s=", unit);
+    int i;
+    for (i = 0; i < range->num_range; i++) {
+        printf("%d-%d", range->start[i], range->end[i]);
+        if (i < range->num_range - 1) {
+            printf(", ");
+        }
+    }
+    printf("\n");
+    fflush(stdout);
 }
