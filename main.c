@@ -12,7 +12,7 @@
 #include "http_parser.h"
 #include "http_request.h"
 #include "http_response.h"
-#include "http_utils.h"
+#include "http_common.h"
 #include "thpool.h"
 
 #define BUFFER_SIZE (80*1024)
@@ -80,9 +80,10 @@ static void send_response(int sockfd, http_response_t *response,
         error("getsockopt(SO_SNDBUF) failed");
     }
 
-    // print_http_request(request);
-    char *value = find_header_value(request, "Range");
-    printf("Ranges: %s\n", value);
+    print_http_request(request);
+    char *value = find_header_value(&request->headers, "Range");
+    // printf("Range: %s\n", value);
+    // get_range(value, NULL);
     buf = malloc(buf_size);
     memset(buf, 0, buf_size);
 
@@ -147,7 +148,7 @@ static void thread_main(void *data) {
     http_response_t *response = malloc(sizeof(http_response_t));
     http_parser_settings settings;
 
-    printf("sockfd: %d %p, in %u\n", *sockfd, sockfd, (unsigned int) pthread_self());
+    // printf("sockfd: %d %p, in %u\n", *sockfd, sockfd, (unsigned int) pthread_self());
 
     http_parser_settings_init(&settings);
     settings.on_url = on_url_cb;
@@ -239,23 +240,6 @@ int main(int argc, char *argv[]) {
         }
 
         thpool_add_work(thpool, (void *) thread_main, (void *) new_socket);
-        // printf("# of threads in running: %d\n", thpool_num_threads_working(thpool));
-        // memset(request, 0, sizeof(http_request_t));
-        // memset(response, 0, sizeof(http_response_t));
-        //
-        // // printf("enter recv_request\n");
-        // recv_request(new_socket, parser, &settings, response);
-        // // printf("exit recv_request\n");
-        // // fflush(stdout);
-        //
-        // // print_http_request((http_request_t *) parser->data);
-        //
-        // // printf("enter send_response\n");
-        // send_response(new_socket, response, request);
-        // // printf("exit send_response\n");
-        // // fflush(stdout);
-        //
-        // close(new_socket);
     }
 
     close(sockfd);

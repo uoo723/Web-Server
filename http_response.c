@@ -16,10 +16,10 @@ static void set_common_headers(http_response_t *response) {
     char time_string[500] = {0};
 
     get_current_time(time_string, 500);
-    set_header(response, "Date", time_string);
-    set_header(response, "Connection", "close");
-    set_header(response, "Server", "CServer/0.1");
-    set_header(response, "Accept-Ranges", "bytes");
+    set_header(&response->headers, "Date", time_string);
+    set_header(&response->headers, "Connection", "close");
+    set_header(&response->headers, "Server", "CServer/0.1");
+    set_header(&response->headers, "Accept-Ranges", "bytes");
 }
 
 static char *get_mime_type(char *path) {
@@ -235,21 +235,6 @@ char *get_status_string(enum http_status status) {
     }
 }
 
-void set_header(http_response_t *response, char *field, char *value) {
-    int i;
-    for (i = 0; i < response->num_headers; i++) {
-        if (strcmp(response->headers[i][0], field) == 0) {
-            memset(response->headers[i][1], 0, MAX_ELEMENT_SIZE);
-            strcpy(response->headers[i][1], value);
-            return;
-        }
-    }
-
-    strcpy(response->headers[response->num_headers][0], field);
-    strcpy(response->headers[response->num_headers][1], value);
-    response->num_headers++;
-}
-
 void make_response(http_response_t *response, http_request_t *request) {
     // printf("-------- print request --------- \n");
     // print_http_request(request);
@@ -301,8 +286,8 @@ void make_response(http_response_t *response, http_request_t *request) {
 
         char str_content_len[100] = {0};
         sprintf(str_content_len, "%d", response->content_length);
-        set_header(response, "Content-Length", str_content_len);
-        set_header(response, "Content-Type", get_mime_type(path));
+        set_header(&response->headers, "Content-Length", str_content_len);
+        set_header(&response->headers, "Content-Type", get_mime_type(path));
     }
 
     // printf("dst_size: %d\n", *dst_size);
@@ -319,8 +304,9 @@ void make_response_string(http_response_t *response, char **dst, int *dst_size) 
     size_t content_offset = 0;
     char *version = "HTTP/1.1 ";
     char *status_string = get_status_string(response->status);
-    int i;
+    http_headers_t *headers = &response->headers;
 
+    int i;
     strcat(*dst, version);
     content_offset += strlen(version);
     strcat(*dst, status_string);
@@ -328,13 +314,13 @@ void make_response_string(http_response_t *response, char **dst, int *dst_size) 
     strcat(*dst, "\r\n");
     content_offset += 2;
 
-    for (i = 0; i < response->num_headers; i++) {
-        strcat(*dst, response->headers[i][0]);
-        content_offset += strlen(response->headers[i][0]);
+    for (i = 0; i < headers->num_headers; i++) {
+        strcat(*dst, headers->field[i]);
+        content_offset += strlen(headers->field[i]);
         strcat(*dst, ": ");
         content_offset += 2;
-        strcat(*dst, response->headers[i][1]);
-        content_offset += strlen(response->headers[i][1]);
+        strcat(*dst, headers->value[i]);
+        content_offset += strlen(headers->value[i]);
         strcat(*dst, "\r\n");
         content_offset += 2;
     }
@@ -345,11 +331,12 @@ void make_response_string(http_response_t *response, char **dst, int *dst_size) 
 }
 
 void print_http_response(http_response_t *response) {
+    http_headers_t *headers = &response->headers;
     int i;
     printf("status: %s\n", get_status_string(response->status));
 
-    for (i = 0; i < response->num_headers; i++) {
-        printf("%s: %s\n", response->headers[i][0], response->headers[i][1]);
+    for (i = 0; i < headers->num_headers; i++) {
+        printf("%s: %s\n", headers->field[i], headers->value[i]);
     }
 
     fflush(stdout);

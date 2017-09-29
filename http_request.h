@@ -6,6 +6,7 @@ extern "C" {
 
 #include <string.h>
 #include "http_parser.h"
+#include "http_common.h"
 
 #define MAX_HEADERS 50
 #define MAX_ELEMENT_SIZE 500
@@ -13,8 +14,7 @@ extern "C" {
 typedef struct {
     char path[MAX_ELEMENT_SIZE];
     enum { NONE=0, FIELD, VALUE } last_header_element;
-    char headers[MAX_HEADERS][2][MAX_ELEMENT_SIZE];
-    int num_headers;
+    http_headers_t headers;
     char body[MAX_ELEMENT_SIZE];
     int method;
     int on_message_completed;

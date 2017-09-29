@@ -2,11 +2,26 @@
 #include <stdlib.h>
 #include "http_common.h"
 
-char *find_header_value(http_request_t *request, char *search) {
+void set_header(http_headers_t *headers, char *field, char *value) {
     int i;
-    for (i = 0; i < request->num_headers; i++) {
-        if (strcmp(request->headers[i][0], search) == 0) {
-            return request->headers[i][1];
+    for (i = 0; i < headers->num_headers; i++) {
+        if (strcmp(headers->field[i], field) == 0) {
+            memset(headers->value[i], 0, MAX_ELEMENT_SIZE);
+            strcpy(headers->value[i], value);
+            return;
+        }
+    }
+
+    strcpy(headers->field[headers->num_headers], field);
+    strcpy(headers->value[headers->num_headers], value);
+    headers->num_headers++;
+}
+
+char *find_header_value(http_headers_t *headers, char *search) {
+    int i;
+    for (i = 0; i < headers->num_headers; i++) {
+        if (strcmp(headers->field[i], search) == 0) {
+            return headers->value[i];
         }
     }
 

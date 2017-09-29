@@ -3,10 +3,12 @@
 
 void print_http_request(http_request_t *request) {
     int i;
+    http_headers_t headers = request->headers;
+
     printf("path: %s\n", request->path);
     printf("method: %s\n", http_method_str(request->method));
-    for (i = 0; i < request->num_headers; i++) {
-        printf("%s: %s\n", request->headers[i][0], request->headers[i][1]);
+    for (i = 0; i < headers.num_headers; i++) {
+        printf("%s: %s\n", headers.field[i], headers.value[i]);
     }
 
     printf("body: \n%s\n", request->body);
@@ -33,12 +35,13 @@ int on_header_field_cb(http_parser *parser, const char *at, size_t len) {
     if (!parser->data) return 0;
 
     http_request_t *request = (http_request_t *) parser->data;
+    http_headers_t *headers = &request->headers;
 
     if (request->last_header_element != FIELD) {
-        request->num_headers++;
+        headers->num_headers++;
     }
 
-    strncat(request->headers[request->num_headers - 1][0], at, len);
+    strncat(headers->field[headers->num_headers - 1], at, len);
     request->last_header_element = FIELD;
 
     return 0;
@@ -48,8 +51,8 @@ int on_header_value_cb(http_parser *parser, const char *at, size_t len) {
     if (!parser->data) return 0;
 
     http_request_t *request = (http_request_t *) parser->data;
-
-    strncat(request->headers[request->num_headers - 1][1], at, len);
+    http_headers_t *headers = &request->headers;
+    strncat(headers->value[headers->num_headers - 1], at, len);
     request->last_header_element = VALUE;
 
     return 0;
