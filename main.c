@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <errno.h>
 #include <signal.h>
 #include <pthread.h>
@@ -16,7 +17,6 @@
 #include "thpool.h"
 
 #define BUFFER_SIZE (80*1024)
-#define PORT 8080
 #define BACKLOG 10
 #define THREAD 4
 
@@ -227,11 +227,25 @@ static void thread_main(void *data) {
 int main(int argc, char *argv[]) {
     signal(SIGPIPE, sigpipe_handler);
 
+    int port;
     int sockfd;
     int opt;
     socklen_t opt_size = sizeof(opt);
-
     threadpool_t thpool;
+
+    // Parse port number
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s [port]\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    port = atoi(argv[1]);
+
+    if (!(port >= 1024 && port <= 65535)) {
+        fprintf(stderr, "port number must be in (1024 <= port <= 65535)\n");
+        exit(EXIT_FAILURE);
+    }
+
     // Create thread pool
     if((thpool = thpool_init(THREAD)) == NULL) {
         error("thpool failed");
@@ -259,7 +273,7 @@ int main(int argc, char *argv[]) {
     // Set IP socket address
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(PORT);
+    server_addr.sin_port = htons(port);
     server_addr.sin_addr.s_addr = INADDR_ANY;
 
     // Bind the address to the socket
@@ -272,6 +286,11 @@ int main(int argc, char *argv[]) {
     if (listen(sockfd, BACKLOG) < 0) {
         error("listen failed");
     }
+
+    char ip_str[20];
+    inet_ntop(AF_INET, &server_addr.sin_addr, ip_str, 20);
+    printf("running on %s:%d\n", ip_str, port);
+    fflush(stdout);
 
     while (1) {
         int *new_socket = malloc(sizeof(int));
