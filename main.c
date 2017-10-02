@@ -19,6 +19,12 @@
 #define BUFFER_SIZE (80*1024)
 #define BACKLOG 10
 #define THREAD 4
+#define IP_STR_SIZE 20
+
+typedef struct {
+    int sockfd;
+    char ip[IP_STR_SIZE];
+} args_t;
 
 typedef threadpool threadpool_t;
 
@@ -195,7 +201,7 @@ static void send_response(int sockfd, http_response_t *response,
 }
 
 static void thread_main(void *data) {
-    int *sockfd = (int *) data;
+    args_t *args = (args_t *) data;
     http_parser *parser = malloc(sizeof(http_parser));
     http_request_t *request = malloc(sizeof(http_request_t));
     http_response_t *response = malloc(sizeof(http_response_t));
@@ -214,14 +220,18 @@ static void thread_main(void *data) {
     memset(request, 0, sizeof(http_request_t));
     memset(response, 0, sizeof(http_response_t));
 
-    recv_request(*sockfd, parser, &settings, response);
-    send_response(*sockfd, response, request);
+    recv_request(args->sockfd, parser, &settings, response);
+
+    printf("request %s from %s\n", request->path, args->ip);
+    fflush(stdout);
+
+    send_response(args->sockfd, response, request);
 
     free(parser);
     free(request);
     free(response);
-    close(*sockfd);
-    free(sockfd);
+    close(args->sockfd);
+    free(args);
 }
 
 int main(int argc, char *argv[]) {
@@ -287,23 +297,26 @@ int main(int argc, char *argv[]) {
         error("listen failed");
     }
 
-    char ip_str[20];
-    inet_ntop(AF_INET, &server_addr.sin_addr, ip_str, 20);
+    char ip_str[IP_STR_SIZE];
+    inet_ntop(AF_INET, &server_addr.sin_addr, ip_str, IP_STR_SIZE);
     printf("running on %s:%d\n", ip_str, port);
     fflush(stdout);
 
     while (1) {
-        int *new_socket = malloc(sizeof(int));
-        struct sockaddr client_addr;
+        args_t *args = malloc(sizeof(args_t));
+        struct sockaddr_in client_addr;
         socklen_t client_addrlen;
 
         // Accept a connection on the socket
-        if ((*new_socket = accept(sockfd, (struct sockaddr *) &client_addr,
+        if ((args->sockfd = accept(sockfd, (struct sockaddr *) &client_addr,
             &client_addrlen)) < 0) {
             error("accept failed");
         }
 
-        thpool_add_work(thpool, (void *) thread_main, (void *) new_socket);
+        inet_ntop(AF_INET, &client_addr.sin_addr, ip_str, IP_STR_SIZE);
+        strcpy(args->ip, ip_str);
+
+        thpool_add_work(thpool, (void *) thread_main, (void *) args);
     }
 
     close(sockfd);
