@@ -62,7 +62,6 @@ static void recv_request(int sockfd, http_parser *parser,
         }
 
         request = (http_request_t *) parser->data;
-        // print_http_request(request);
         if (request->on_message_completed) {
             break;
         }
@@ -75,24 +74,53 @@ static void send_response(int sockfd, http_response_t *response,
     int buf_size;
     socklen_t opt_size = sizeof(int);
     int socket_error = 0;
+    int is_range = 0;
 
     if (getsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &buf_size, &opt_size) < 0) {
         error("getsockopt(SO_SNDBUF) failed");
-    }
-
-    print_http_request(request);
-    char *value = find_header_value(&request->headers, "Range");
-    range_t range;
-    if (value != NULL) {
-        printf("Range: %s\n", value);
-        get_range(value, &range);
-        print_range(&range);
     }
 
     buf = malloc(buf_size);
     memset(buf, 0, buf_size);
 
     make_response(response, request);
+
+    char *value = find_header_value(&request->headers, "Range");
+    range_t range;
+    if (value != NULL) {
+        if (get_range(value, &range) < 0) {
+            fprintf(stderr, "range parsing failed\n");
+        } else {
+            if (range.unit == BYTES) {
+                is_range = 1;
+                if (response->status == HTTP_STATUS_OK) {
+                    int start = range.start[0];
+                    int end = range.end[0] == -1
+                        ? response->content_length - 1
+                        : range.end[0];
+
+                    int range_len = end == -1
+                        ? response->content_length - start + 1
+                        : end - start + 1;
+                    char range_str[50] = {0};
+                    char content_range_str[50] = {0};
+
+                    response->status = HTTP_STATUS_PARTIAL_CONTENT;
+
+                    sprintf(range_str, "%d", range_len);
+                    sprintf(content_range_str, "bytes %d-%d/%d", start, end,
+                        response->content_length);
+                    set_header(&response->headers, "Content-Length", range_str);
+                    set_header(&response->headers, "Content-Range",
+                        content_range_str);
+
+                    response->content_length = range_len;
+                }
+            } else {
+            // TODO: Handle Unknown Range unit.
+            }
+        }
+    }
 
     int dst_size;
     char *dst = &buf[0];
@@ -115,13 +143,24 @@ static void send_response(int sockfd, http_response_t *response,
 
     if (fp) {
         int read = 0;
+        int total_read = 0;
+        int fbuf_size;
+        if (is_range) {
+            fbuf_size = response->content_length;
+            fseek(fp, range.start[0], SEEK_SET);
+            if (fbuf_size > buf_size) {
+                fbuf_size = buf_size;
+            }
+        } else {
+            fbuf_size = buf_size;
+        }
+
         memset(buf, 0, buf_size);
-        while ((read = fread(buf, 1, buf_size, fp)) >= 0) {
-            // printf("read: %d\n", read);
-            // printf("buf_size: %d\n", buf_size);
+
+        while ((read = fread(buf, 1, fbuf_size, fp)) >= 0) {
             if (read == 0) break;
-            // printf("send\n");
-            // print_http_request(request);
+            total_read += read;
+
             if (send(sockfd, buf, read, 0) < 0) {
                 if (errno == EPIPE) {
                     break;
@@ -131,7 +170,14 @@ static void send_response(int sockfd, http_response_t *response,
                     error("send content failed");
                 }
             }
-            // printf("send end\n");
+
+            if (is_range) {
+                if (total_read == response->content_length) {
+                    break;
+                } else if (response->content_length - total_read < fbuf_size) {
+                    fbuf_size = response->content_length - total_read;
+                }
+            }
         }
 
         if (read < 0) {
@@ -139,11 +185,13 @@ static void send_response(int sockfd, http_response_t *response,
         }
 
         if (ferror(fp)) {
-            fprintf(stderr, "ferror(fp)\n");
+            fprintf(stderr, "ferror(fp) in %u\n",
+                (unsigned int) pthread_self());
         }
 
         fclose(fp);
     }
+
 }
 
 static void thread_main(void *data) {
@@ -152,8 +200,6 @@ static void thread_main(void *data) {
     http_request_t *request = malloc(sizeof(http_request_t));
     http_response_t *response = malloc(sizeof(http_response_t));
     http_parser_settings settings;
-
-    // printf("sockfd: %d %p, in %u\n", *sockfd, sockfd, (unsigned int) pthread_self());
 
     http_parser_settings_init(&settings);
     settings.on_url = on_url_cb;

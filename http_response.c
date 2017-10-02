@@ -50,7 +50,7 @@ static char *get_mime_type(char *path) {
         return "video/mp4";
     }
 
-    return"text/plain";
+    return "text/plain";
 }
 
 char *get_status_string(enum http_status status) {
