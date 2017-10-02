@@ -232,6 +232,9 @@ char *get_status_string(enum http_status status) {
 
     case HTTP_STATUS_NETWORK_AUTHENTICATION_REQUIRED:
         return "511 Network Authentication Required";
+
+    default:
+        return NULL;
     }
 }
 

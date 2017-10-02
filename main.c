@@ -229,7 +229,6 @@ int main(int argc, char *argv[]) {
 
     int sockfd;
     int opt;
-    int sock_buf_size;
     socklen_t opt_size = sizeof(opt);
 
     threadpool_t thpool;
@@ -255,11 +254,6 @@ int main(int argc, char *argv[]) {
         error("setsockopt(SO_REUSEPORT) failed");
     }
     #endif
-
-    if (getsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &opt, &opt_size) < 0) {
-        error("getsockopt(SOL_SNDBUF) failed");
-    }
-    sock_buf_size = opt;
 
     struct sockaddr_in server_addr;
     // Set IP socket address

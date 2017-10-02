@@ -15,7 +15,7 @@ typedef struct {
 } http_headers_t;
 
 typedef struct {
-    enum { NONE=0, BYTES } unit;
+    enum { UNIT_NONE=0, BYTES } unit;
     int start[MAX_RANGE];
     int end[MAX_RANGE];
     int num_range;

@@ -50,7 +50,7 @@ int get_range(char *str, range_t *range) {
     if (strcmp(unit, "bytes") == 0) {
         range->unit = BYTES;
     } else {
-        range->unit = NONE;
+        range->unit = UNIT_NONE;
     }
 
     char *ranges = strsep(&tmp_str, "=");
@@ -83,7 +83,7 @@ int get_range(char *str, range_t *range) {
 }
 
 void print_range(range_t *range) {
-    char *unit = range->unit == 1 ? "bytes" : "none";
+    char *unit = range->unit == BYTES ? "bytes" : "none";
     printf("%s=", unit);
     int i;
     for (i = 0; i < range->num_range; i++) {
