@@ -2,3 +2,4 @@ build/
 test/
 thpool/
 app
+.ftpconfig
