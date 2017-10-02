@@ -338,6 +338,6 @@ void print_http_response(http_response_t *response) {
     for (i = 0; i < headers->num_headers; i++) {
         printf("%s: %s\n", headers->field[i], headers->value[i]);
     }
-
+    printf("\n");
     fflush(stdout);
 }
