@@ -4,7 +4,7 @@ BUILD = build
 SRCS = $(wildcard *.c)
 HEADERS = $(wildcard *.h)
 OBJS = $(patsubst %.c,$(BUILD)/%.o,$(SRCS))
-TARGET = app
+TARGET = server
 MKDIR = mkdir -p
 BUILD_CMD = $(CC) $(CFLAGS) $(debug) -c -o $@ $<
 

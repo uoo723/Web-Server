@@ -50,6 +50,10 @@ static char *get_mime_type(char *path) {
         return "video/mp4";
     }
 
+    if (strcmp(ext, "pdf") == 0) {
+        return "application/pdf";
+    }
+
     return "text/plain";
 }
 
