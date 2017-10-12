@@ -10,20 +10,19 @@
 #include <signal.h>
 #include <pthread.h>
 
-#include "http_parser.h"
+#include "http_parser.h"        // library
 #include "http_request.h"
 #include "http_response.h"
 #include "http_common.h"
-#include "thpool.h"
+#include "thpool.h"            // library
 
 #define BUFFER_SIZE (80*1024)
 #define BACKLOG 10
 #define THREAD 4
-#define IP_STR_SIZE 20
 
 typedef struct {
     int sockfd;
-    char ip[IP_STR_SIZE];
+    char ip[INET_ADDRSTRLEN];
 } args_t;
 
 typedef threadpool threadpool_t;
@@ -82,6 +81,7 @@ static void send_response(int sockfd, http_response_t *response,
     int socket_error = 0;
     int is_range = 0;
 
+    // Get socket send buffer size
     if (getsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &buf_size, &opt_size) < 0) {
         error("getsockopt(SO_SNDBUF) failed");
     }
@@ -96,7 +96,7 @@ static void send_response(int sockfd, http_response_t *response,
     if (value != NULL) {
         if (get_range(value, &range) < 0) {
             fprintf(stderr, "range parsing failed\n");
-        } else {
+        } else {        // Control Parital Content
             if (range.unit == BYTES) {
                 is_range = 1;
                 if (response->status == HTTP_STATUS_OK) {
@@ -105,22 +105,23 @@ static void send_response(int sockfd, http_response_t *response,
                         ? response->content_length - 1
                         : range.end[0];
 
-                    int range_len = end == -1
+                    int content_len = end == -1
                         ? response->content_length - start + 1
                         : end - start + 1;
-                    char range_str[50] = {0};
+                    char content_len_str[50] = {0};
                     char content_range_str[50] = {0};
 
                     response->status = HTTP_STATUS_PARTIAL_CONTENT;
 
-                    sprintf(range_str, "%d", range_len);
+                    sprintf(content_len_str, "%d", content_len);
                     sprintf(content_range_str, "bytes %d-%d/%d", start, end,
                         response->content_length);
-                    set_header(&response->headers, "Content-Length", range_str);
+                    set_header(&response->headers, "Content-Length",
+                        content_len_str);
                     set_header(&response->headers, "Content-Range",
                         content_range_str);
 
-                    response->content_length = range_len;
+                    response->content_length = content_len;
                 }
             } else {
             // TODO: Handle Unknown Range unit.
@@ -297,15 +298,15 @@ int main(int argc, char *argv[]) {
         error("listen failed");
     }
 
-    char ip_str[IP_STR_SIZE];
-    inet_ntop(AF_INET, &server_addr.sin_addr, ip_str, IP_STR_SIZE);
+    char ip_str[INET_ADDRSTRLEN] = {0};
+    inet_ntop(AF_INET, &server_addr.sin_addr, ip_str, INET_ADDRSTRLEN);
     printf("running on %s:%d\n", ip_str, port);
     fflush(stdout);
 
     while (1) {
         args_t *args = malloc(sizeof(args_t));
         struct sockaddr_in client_addr;
-        socklen_t client_addrlen;
+        socklen_t client_addrlen = sizeof(struct sockaddr_in);
 
         // Accept a connection on the socket
         if ((args->sockfd = accept(sockfd, (struct sockaddr *) &client_addr,
@@ -313,7 +314,7 @@ int main(int argc, char *argv[]) {
             error("accept failed");
         }
 
-        inet_ntop(AF_INET, &client_addr.sin_addr, ip_str, IP_STR_SIZE);
+        inet_ntop(AF_INET, &client_addr.sin_addr, ip_str, INET_ADDRSTRLEN);
         strcpy(args->ip, ip_str);
 
         thpool_add_work(thpool, (void *) thread_main, (void *) args);

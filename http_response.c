@@ -243,11 +243,6 @@ char *get_status_string(enum http_status status) {
 }
 
 void make_response(http_response_t *response, http_request_t *request) {
-    // printf("-------- print request --------- \n");
-    // print_http_request(request);
-    // printf("-------- end print request --------- \n\n");
-    // fflush(stdout);
-
     char path[100] = "html";
     int is_server_error = 0;
 
@@ -265,7 +260,7 @@ void make_response(http_response_t *response, http_request_t *request) {
         strcat(path, request->path);
     }
 
-    FILE *fp = fopen(path, "rb");
+    FILE *fp = fopen(path, "rb");   // Open file in binary mode for convenience
 
     if (!fp) {
         if (errno == ENOENT) {
@@ -288,23 +283,12 @@ void make_response(http_response_t *response, http_request_t *request) {
         response->content_length = ftell(fp);
         fseek(fp, 0, SEEK_SET);
         response->content = fp;
-        // fread(response->body, sizeof(char), content_length, *fp);
-        // fclose(fp);
 
         char str_content_len[100] = {0};
         sprintf(str_content_len, "%d", response->content_length);
         set_header(&response->headers, "Content-Length", str_content_len);
         set_header(&response->headers, "Content-Type", get_mime_type(path));
     }
-
-    // printf("dst_size: %d\n", *dst_size);
-    // printf("%s\n", *dst);
-    // *fd = fileno(fp);
-    // printf("------- print http response ---------\n");
-    // print_http_response(response);
-    // printf("---------- end print http response ------------\n\n");
-    // fflush(stdout);
-    // free(response);
 }
 
 void make_response_string(http_response_t *response, char **dst, int *dst_size) {
@@ -333,7 +317,6 @@ void make_response_string(http_response_t *response, char **dst, int *dst_size) 
     }
     strcat(*dst, "\r\n");
     content_offset += 2;
-    // memcpy(*dst + content_offset, response->body, response->content_length);
     *dst_size = content_offset;
 }
 
